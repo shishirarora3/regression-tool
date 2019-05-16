@@ -27,13 +27,14 @@ Now tool will take care of all possible permutations of constituent sub-actions,
 
 ## Before code change:
 ##### Note: in local storage: iter variable tracks the test case no. and snapshots variable tracks snapshots for all test cases.
-1) in actions.js, set takeSnapshots variable as true. Also, iter and snapshots as empty in localstorage.
-2) refresh chrome extension and let test snapshots get captured.
+1) in actions.js, set takeSnapshots as "true" and iter as -1 in localstorage.
+2) refresh chrome extension and let snapshots get captured.
 
 
 After code change, to run regression:
 
-1) in actions.js, set takeSnapshots variable as false. Also, iter as empty in localstorage.
-2) refresh chrome extension and let the tool diff, new snapshots against old snapshots and log as error in console starting with "Snapshot Error:".
+1) in actions.js, set takeSnapshots as "false" and iter as -1 in localstorage.
+2) refresh chrome extension and let the tool diff, new snapshots against old snapshots and log in diff.html file, 
+once it finishes, the report-diff.html will download.
 
-We can overlook deliberate changes and correct un-intentional changes.
+Now, we can overlook deliberate changes and correct un-intentional changes.

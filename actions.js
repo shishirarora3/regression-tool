@@ -1,25 +1,93 @@
+
+const TAKE_SNAPSHOTS = localStorage.getItem("take-snapshots") === "true";
+const TIME_BETWEEN_ACTIONS = 500;
 //[[[1],[4],[7]],[[1],[4],[7,8]],...
 const actionsArrList = getCompositeSubsets([
-    [3, 5, 6, 9],
-    [0],
+    [3, 5, 6, 9], // possible ids of actions, here only actions items with ids 3, ,5,6, 9 are included in tests
+    [0],// possible ids of actions, here only action item with id 0 is included in tests
     [null]
 ].map(getSubsets));
 
 
 //[[1],[4],[7]]
-const takeSnapshots = false;
+try {
+    const startIter = +localStorage.getItem("iter");//-1
+        if(TAKE_SNAPSHOTS && startIter == -1){
+            localStorage.setItem("snapshots", "");
+        }
+        if (startIter == -1) {
+            chrome.storage.local.set({"result":[]}, function () {
+                console.log("result reset");
+            });
+        }
+        const length = actionsArrList.length;
+        if ( startIter < length - 1 ) {
+            runSync(actionsArrList, startIter + 1);
+        } else if(!TAKE_SNAPSHOTS){
+            chrome.storage.local.get(["result"], function (response) {
+                console.log("get result",response);
+                const {result: data} =  response;
+                var tabulatorCSSURL = chrome.runtime.getURL("tabulator.min.css");
+                var StyleURL = chrome.runtime.getURL("style.css");
+                var tabulatorJSURL = chrome.runtime.getURL("tabulator.js");
+                try{
+                    const html = `<html>
+            <head>
+                <link href="${tabulatorCSSURL}" rel="stylesheet"/>
+                <link href="${StyleURL}" rel="stylesheet"/> 
+                <script type="text/javascript" src="${tabulatorJSURL}"></script>
+            </head>
+            <body>
+                <div id='app'>
+               <table>
+                    <thead>
+                        <tr>
+                            <th>Index</th>
+                            <th>Test Case - First Failed Step</th>
+                            <th class="width-same">Expected</th>  
+                            <th class="width-same">Actual</th>  
+                            <th class="width-same">Difference</th>  
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.reduce((r,d,i)=>r+`
+                        <tr>
+                        <td>
+                        ${i+1}
+                        </td>
+                        <td>
+                            ${d.actionsArrString} - ${d.index}
+                        </td>
+                        
+                        <td class="width-same">
+                           ${d.Expected} 
+                        </td>
+                        <td class="width-same">
+                           ${d.Actual} 
+                        </td>
+                        <td class="width-same">
+                           ${d.Difference} 
+                        </td>
+                        </tr>
+                        `,"")}
+                    </tbody>
+                </table>
+                </div>
+            </body>
+            </html>`;
+                    console.save(html, "diff.html", "text/html");
+                }catch(e){
+                    console.error(e);
+                }
 
-try{
-    const startIter =+localStorage.getItem("iter") + 1;
-    const length = actionsArrList.length;
-    if(startIter<length-1){
-        runSync(actionsArrList, startIter+1);
-    }
+            });
+        }
 
-}catch (e) {
+} catch (e) {
     console.error(e);
-    runSync(actionsArrList);
+    //runSync(actionsArrList);
 }
+
 /**
  [
  [[3,5], [1]], //tc1
@@ -27,8 +95,9 @@ try{
  ]
  **/
 
-function actions(){
+function actions() {
     return [
+        /*tool will do all possible permutations of these ids*/
         (ids) => { //action 1
             var check = (i) => `body > div.js-content > div > div > div > div > div > div.playgroundPreview > div > div > div > div > article > div.return-main-container > div > div > div > div > div:nth-child(${i}) > div > div.new-order-item-select-container > div > label > div > span > span > span`;
             var drop = (i) => `body > div.js-content > div > div > div > div > div > div.playgroundPreview > div > div > div > div > article > div.return-main-container > div > div > div > div > div:nth-child(${i}) > div > div.product-tile-back > div > div:nth-child(2) > div > div:nth-child(1) > div > select`;
@@ -60,6 +129,7 @@ function actions(){
             $('button:contains("Continue"):first').trigger("click");
 
         },
+        /*tool will do all possible permutations of these ids*/
         (ids) => { //action 2
 
             ids.forEach((id) => {
@@ -89,34 +159,42 @@ function runActionsOnIdSubset(actionsArr) {
                     value && value(valueActionsArriterator);
                     const snapshot = document.querySelector('article').innerText;
                     resultSnapshots.push(snapshot);
-                    ({value, done} = iterator.next());
-                    ({value: valueActionsArriterator, done: doneActionsArriterator} = actionsArriterator.next());
+                    ({value, done} = iterator.next());//action definition ia page
+                    ({value: valueActionsArriterator, done: doneActionsArriterator} = actionsArriterator.next()); //action ids in a page
                 } else {
-                    if(takeSnapshots){
+                    if (TAKE_SNAPSHOTS) {
                         const snapshots = JSON.parse(localStorage.getItem("snapshots") || "{}");
 
-                        snapshots[JSON.stringify(actionsArr)]= resultSnapshots;
+                        snapshots[JSON.stringify(actionsArr)] = resultSnapshots;
                         localStorage.setItem("snapshots", JSON.stringify(
                             snapshots
                             )
                         );
-                    }else{
+                    } else {
                         //find diff
                         const snapshots = JSON.parse(localStorage.getItem("snapshots") || "{}");
                         const actionsArrString = JSON.stringify(actionsArr);
                         const snapshot = snapshots[actionsArrString];
-                        if(snapshot){
+                        if (snapshot) {
                             let index = -1;
-                            const isNotEqual = snapshot.some((s, i)=>{
+                            const isNotEqual = snapshot.some((s, i) => {
                                 const r = resultSnapshots[i] !== s;
-                                if(r){
+                                if (r) {
                                     index = i;
                                 }
                                 return r;
                             });
-                            if(isNotEqual){
-                                console.error(`Snapshot Error: ${actionsArrString} => action ${index} => 
-                                expected: ${snapshot[index]} \n got: ${resultSnapshots[index]}`);
+                            if (isNotEqual) {
+                                const [_original, _erroneousText] = [snapshot[index], resultSnapshots[index]];
+
+
+                                    chrome.runtime.sendMessage({
+                                        type: "calculate-diff",
+                                        data: {_original, _erroneousText, actionsArrString, index}
+                                    }, function(response) {
+                                        console.log(response);
+                                    });
+
                             }
 
                         }
@@ -124,29 +202,31 @@ function runActionsOnIdSubset(actionsArr) {
                     }
                     clearInterval(i);
                     location.reload();
-                    setTimeout(res, 500);
+                    setTimeout(res, TIME_BETWEEN_ACTIONS);
                 }
             } catch (e) {
                 rej(e);
             }
-        }, 500);
+        }, TIME_BETWEEN_ACTIONS);
     });
 
 }
 
 
 
-
-function runSync(actionsArrList, startIter=0){
-        localStorage.setItem("iter",`${startIter}`);
-        runActionsOnIdSubset(actionsArrList[startIter]);
+function runSync(actionsArrList, startIter = 0) {
+    localStorage.setItem("iter", `${startIter}`);
+    runActionsOnIdSubset(actionsArrList[startIter]);
 }
 
-
-
+/**
+ *
+ * @param values [3,5,6]
+ * @returns {Array} [[3], [3,5], [3,5,6],  [3,5,6,9], [3,5,9].....15]
+ */
 function getSubsets(values) {
     const result = [];
-    const inputIndices = [...new Array(values.length)].map((_, i) => i);
+    const inputIndices = [...Array(values.length)].map((_, i) => i);
     const rec = (resultIndices = []) => {
         const nextResult = resultIndices.map(i => values[i]);
         if (nextResult.length > 0) {
@@ -162,6 +242,22 @@ function getSubsets(values) {
     return result;
 }
 
+
+/**
+ *
+ * @param subsetsArr [
+       [[3], [3,5], [3,5,6],  [3,5,6,9], [3,5,9].....15],
+        [[0]],
+        [[null]]
+   ]
+ * @returns {*} array containing items equal to no. of tests we are finally running,
+ each test item has actions it will do in that test
+ [
+   [[3], [0], [null]],
+    [[3,5], [0], [null]],
+    [[3,5,6], [0], [null]],...15
+ ]
+ */
 function getCompositeSubsets(subsetsArr) {
     let result = subsetsArr[0].map(s => [s]);
     subsetsArr.slice(1).forEach((subsets) => {

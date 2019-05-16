@@ -1,0 +1,21 @@
+e{
+    color: red;
+}
+m{
+    color: blue;
+}
+table, td, th{
+    border: 1px solid #333;
+    vertical-align: top;
+}
+#app{
+    width: 100vw;
+    max-width: 100%;
+}
+.tabulator-row .tabulator-cell{
+    white-space: pre-wrap;
+    height: 400px!important;
+}
+.width-same{
+    width: 30%;
+}
